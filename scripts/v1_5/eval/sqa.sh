@@ -6,7 +6,7 @@
 #     --split test
 
 python -m llava.eval.model_vqa_science \
-    --model-path ./checkpoints/llava-v1.5-13b-lora-vqvae  \
+    --model-path /home/p.druzhinina/new_llava/  \
     --question-file ./playground/data/eval/scienceqa/llava_test_CQM-A.json \
     --image-folder ./playground/data/eval/scienceqa/images/test \
     --answers-file ./playground/data/eval/scienceqa/answers/llava-v1.5-13b.jsonl \

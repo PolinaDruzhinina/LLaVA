@@ -1,9 +1,8 @@
 #!/bin/bash
 # --include localhost:5
-deepspeed llava/train/train_mem.py \
+deepspeed --include localhost:2 llava/train/train_mem.py \
     --deepspeed ./scripts/zero2.json \
     --model_name_or_path lmsys/vicuna-13b-v1.5 \
-    --compressed_model_ckpt vq_vae\
     --version plain \
     --data_path ./playground/data/LLaVA-Pretrain/blip_laion_cc_sbu_558k.json \
     --image_folder ./playground/data/LLaVA-Pretrain/images \
@@ -31,6 +30,6 @@ deepspeed llava/train/train_mem.py \
     --tf32 True \
     --model_max_length 2048 \
     --gradient_checkpointing True \
-    --dataloader_num_workers  \
+    --dataloader_num_workers 1 \
     --lazy_preprocess True \
     --report_to wandb
