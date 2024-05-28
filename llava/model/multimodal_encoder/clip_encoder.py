@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-
+import diffusers 
 from transformers import CLIPVisionModel, CLIPImageProcessor, CLIPVisionConfig
+from llava.model.multimodal_projector.builder import build_vision_projector
 
 
 class CLIPVisionTower(nn.Module):
@@ -13,6 +14,10 @@ class CLIPVisionTower(nn.Module):
         self.vision_tower_name = vision_tower
         self.select_layer = args.mm_vision_select_layer
         self.select_feature = getattr(args, 'mm_vision_select_feature', 'patch')
+        self.compressed = args.compressed
+        self.compressed_model_ckpt = args.compressed_model_ckpt
+        self.compressed_model_visual_adapter = args.compressed_model_visual_adapter
+        self.args = args
 
         if not delay_load:
             self.load_model()
@@ -29,6 +34,18 @@ class CLIPVisionTower(nn.Module):
         self.image_processor = CLIPImageProcessor.from_pretrained(self.vision_tower_name)
         self.vision_tower = CLIPVisionModel.from_pretrained(self.vision_tower_name, device_map=device_map)
         self.vision_tower.requires_grad_(False)
+
+        if self.compressed:
+            self.compressed_model = diffusers.VQModel(1, 1,vq_embed_dim= 1, scaling_factor=4).from_pretrained(self.compressed_model_ckpt)
+            self.args.mm_hidden_size = self.vision_tower.config.hidden_size
+            self.img_mm_projector = build_vision_projector(self.args)
+
+            mm_projector_weights = torch.load(self.compressed_model_visual_adapter, map_location='cpu')
+            def get_w(weights, keyword):
+                    return {k.split(keyword + '.')[1]: v for k, v in weights.items() if keyword in k}
+
+            self.img_mm_projector.load_state_dict(get_w(mm_projector_weights, 'mm_projector'))
+
 
         self.is_loaded = True
 

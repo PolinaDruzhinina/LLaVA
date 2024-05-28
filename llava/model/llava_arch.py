@@ -46,6 +46,19 @@ class LlavaMetaModel:
             vision_tower = vision_tower[0]
         return vision_tower
 
+    def get_compressed_model(self):
+        compressed_model = getattr(self, 'compressed_model', None)
+        if type(compressed_model) is list:
+            compressed_model = compressed_model[0]
+        return compressed_model
+
+    def get_img_mm_projector(self):
+        img_mm_projector = getattr(self, 'img_mm_projector', None)
+        if type(img_mm_projector) is list:
+            img_mm_projector = img_mm_projector[0]
+        return img_mm_projector
+
+
     def initialize_vision_modules(self, model_args, fsdp=None):
         vision_tower = model_args.vision_tower
         mm_vision_select_layer = model_args.mm_vision_select_layer
@@ -56,6 +69,7 @@ class LlavaMetaModel:
         self.config.mm_vision_tower = vision_tower
 
         if self.get_vision_tower() is None:
+            model_args.hidden_size = self.config.hidden_size
             vision_tower = build_vision_tower(model_args)
 
             if fsdp is not None and len(fsdp) > 0:
@@ -68,6 +82,8 @@ class LlavaMetaModel:
             else:
                 vision_tower = self.vision_tower
             vision_tower.load_model()
+        self.compressed_model = vision_tower.compressed_model
+        self.img_mm_projector = vision_tower.img_mm_projector
 
         self.config.use_mm_proj = True
         self.config.mm_projector_type = getattr(model_args, 'mm_projector_type', 'linear')
@@ -137,10 +153,31 @@ class LlavaMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
+    def get_compressed_model(self):
+        return self.get_model().get_compressed_model()
+
+    def get_img_mm_projector(self):
+        return self.get_model().get_img_mm_projector()
+
     def encode_images(self, images):
         image_features = self.get_model().get_vision_tower()(images)
-        image_features = self.get_model().mm_projector(image_features)
+        if not self.config.compressed:
+            image_features = self.get_model().mm_projector(image_features)
         return image_features
+
+    def compress_embed(self, input_embed, images, num_images):
+        cur_new_input_embeds = []
+        for i in range(num_images + 1):
+                cur_new_input_embeds.append(input_embed[i])
+                if i < num_images:
+                    img_features = self.get_model().get_img_mm_projector()(images)
+                    cur_new_input_embeds.append(img_features)
+        cur_new_input_embeds = [x.to(self.device) for x in cur_new_input_embeds]
+        cur_new_input_embeds = torch.cat(cur_new_input_embeds)[None,None,:,:]
+        features_latents = self.get_model().get_compressed_model().encode(cur_new_input_embeds).latents
+        compressed_features, _, _ =  self.get_model().get_compressed_model().quantize(features_latents)
+        compressed_features = compressed_features[0][0]
+        return compressed_features
 
     def prepare_inputs_labels_for_multimodal(
         self, input_ids, position_ids, attention_mask, past_key_values, labels,
@@ -250,6 +287,11 @@ class LlavaMetaForCausalLM(ABC):
             split_sizes = [x.shape[0] for x in cur_labels_noim]
             cur_input_embeds = self.get_model().embed_tokens(torch.cat(cur_input_ids_noim))
             cur_input_embeds_no_im = torch.split(cur_input_embeds, split_sizes, dim=0)
+
+            if self.config.compressed:
+                image_features_compressed = self.compress_embed(cur_input_embeds_no_im, image_features[cur_image_idx], num_images)
+
+
             cur_new_input_embeds = []
             cur_new_labels = []
 
@@ -257,7 +299,10 @@ class LlavaMetaForCausalLM(ABC):
                 cur_new_input_embeds.append(cur_input_embeds_no_im[i])
                 cur_new_labels.append(cur_labels_noim[i])
                 if i < num_images:
-                    cur_image_features = image_features[cur_image_idx]
+                    if self.config.compressed:
+                        cur_image_features = image_features_compressed
+                    else:
+                        cur_image_features = image_features[cur_image_idx]
                     cur_image_idx += 1
                     cur_new_input_embeds.append(cur_image_features)
                     cur_new_labels.append(torch.full((cur_image_features.shape[0],), IGNORE_INDEX, device=cur_labels.device, dtype=cur_labels.dtype))

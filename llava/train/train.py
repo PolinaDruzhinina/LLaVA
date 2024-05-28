@@ -64,7 +64,9 @@ class ModelArguments:
     mm_use_im_patch_token: bool = field(default=True)
     mm_patch_merge_type: Optional[str] = field(default='flat')
     mm_vision_select_feature: Optional[str] = field(default="patch")
-
+    compressed: bool = field(default=False)
+    compressed_model_ckpt: Optional[str] = field(default="compressed_model_vq_vae")
+    compressed_model_visual_adapter: Optional[str] = field(default='./checkpoints/llava-v1.5-13b-pretrain/mm_projector.bin')
 
 @dataclass
 class DataArguments:
@@ -740,7 +742,7 @@ class LazySupervisedDataset(Dataset):
 
 
 @dataclass
-class DataCollatorForSupervisedDatasDataCollatorForSupervisedDatasetet(object):
+class DataCollatorForSupervisedDataset(object):
     """Collate examples for supervised fine-tuning."""
 
     tokenizer: transformers.PreTrainedTokenizer
@@ -918,11 +920,18 @@ def train(attn_implementation=None):
 
         data_args.image_processor = vision_tower.image_processor
         data_args.is_multimodal = True
-
         model.config.image_aspect_ratio = data_args.image_aspect_ratio
         model.config.tokenizer_padding_side = tokenizer.padding_side
         model.config.tokenizer_model_max_length = tokenizer.model_max_length
+        model.config.compressed = model_args.compressed
+        if model_args.compressed:
 
+            compressed_model = model.get_compressed_model()
+            compressed_model.to(dtype=torch.bfloat16 if training_args.bf16 else torch.float16, device=training_args.device)
+            img_mm_projector = model.get_img_mm_projector()
+            img_mm_projector.to(dtype=torch.bfloat16 if training_args.bf16 else torch.float16, device=training_args.device)
+            
+        
         model.config.tune_mm_mlp_adapter = training_args.tune_mm_mlp_adapter = model_args.tune_mm_mlp_adapter
         if model_args.tune_mm_mlp_adapter:
             model.requires_grad_(False)
