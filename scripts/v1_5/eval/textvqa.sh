@@ -1,5 +1,4 @@
 #!/bin/bash
-
 python -m llava.eval.model_vqa_loader \
     --model-path liuhaotian/llava-v1.5-13b \
     --question-file ./playground/data/eval/textvqa/llava_textvqa_val_v051_ocr.jsonl \

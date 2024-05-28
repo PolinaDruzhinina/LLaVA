@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/bin/bas
+# python scripts/convert_sqa_to_llava.py \
+#     convert_to_llava \
+#     --base-dir /path/to/ScienceQA/data/scienceqa \
+#     --prompt-format "CQM-A" \
+#     --split test
 
 python -m llava.eval.model_vqa_science \
     --model-path liuhaotian/llava-v1.5-13b \

@@ -1,16 +1,17 @@
 import torch
 import torch.nn as nn
-
+import diffusers
 from transformers import CLIPVisionModel, CLIPImageProcessor, CLIPVisionConfig
+from clip_encoder import CLIPVisionTower
 
-
-class CLIPVisionTower(nn.Module):
+class VqVAEVisionTower(nn.Module):
     def __init__(self, vision_tower, args, delay_load=False):
         super().__init__()
 
         self.is_loaded = False
 
         self.vision_tower_name = vision_tower
+        self.compressed_model_ckpt = args.compressed_model_ckpt
         self.select_layer = args.mm_vision_select_layer
         self.select_feature = getattr(args, 'mm_vision_select_feature', 'patch')
 
@@ -26,9 +27,9 @@ class CLIPVisionTower(nn.Module):
             print('{} is already loaded, `load_model` called again, skipping.'.format(self.vision_tower_name))
             return
 
-        self.image_processor = CLIPImageProcessor.from_pretrained(self.vision_tower_name)
-        self.vision_tower = CLIPVisionModel.from_pretrained(self.vision_tower_name, device_map=device_map)
-        self.vision_tower.requires_grad_(False)
+        self.image_processor = CLIPVisionTower(self.vision_tower_name)
+        self.clip.load_model()
+        self.compressed_model = diffusers.VQModel(1, 1,vq_embed_dim= 1, scaling_factor=4).from_pretrain(self.compressed_model_ckpt)
 
         self.is_loaded = True
 
@@ -89,7 +90,7 @@ class CLIPVisionTower(nn.Module):
 
 
 
-class CLIPVisionTowerS2(CLIPVisionTower):
+class VqVAEVisionTowerS2(VqVAEVisionTower):
     def __init__(self, vision_tower, args, delay_load=False):
         super().__init__(vision_tower, args, delay_load)
 

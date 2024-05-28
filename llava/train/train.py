@@ -654,7 +654,7 @@ def preprocess(
 
     return dict(input_ids=input_ids, labels=targets)
 
-
+    
 class LazySupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
 
@@ -740,7 +740,7 @@ class LazySupervisedDataset(Dataset):
 
 
 @dataclass
-class DataCollatorForSupervisedDataset(object):
+class DataCollatorForSupervisedDatasDataCollatorForSupervisedDatasetet(object):
     """Collate examples for supervised fine-tuning."""
 
     tokenizer: transformers.PreTrainedTokenizer

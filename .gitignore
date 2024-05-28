@@ -24,7 +24,8 @@ output
 
 checkpoints
 ckpts*
-
+playground/data
+*.jpg
 .ipynb_checkpoints
 *.ipynb
 

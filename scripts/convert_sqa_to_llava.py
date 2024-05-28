@@ -41,7 +41,7 @@ def convert_to_llava(base_dir, split, prompt_format="QCM-LEA"):
             })
 
     print(f'Number of samples: {len(target_format)}')
-
+    print(os.path.join(base_dir, f"llava_{split}_{prompt_format}.json"))
     with open(os.path.join(base_dir, f"llava_{split}_{prompt_format}.json"), "w") as f:
         json.dump(target_format, f, indent=2)
 
