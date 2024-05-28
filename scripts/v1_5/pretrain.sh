@@ -1,8 +1,9 @@
 #!/bin/bash
-
-deepspeed --include localhost:5 llava/train/train_mem.py \
+# --include localhost:5
+deepspeed llava/train/train_mem.py \
     --deepspeed ./scripts/zero2.json \
     --model_name_or_path lmsys/vicuna-13b-v1.5 \
+    --compressed_model_ckpt vq_vae\
     --version plain \
     --data_path ./playground/data/LLaVA-Pretrain/blip_laion_cc_sbu_558k.json \
     --image_folder ./playground/data/LLaVA-Pretrain/images \
